@@ -93,18 +93,40 @@ jobs:
         mkdir -p packages files
         
         echo "Downloading custom packages..."
-        AMLOGIC_IPK_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/ophub/luci-app-amlogic/releases/latest | grep "browser_download_url" | grep -E "luci-app-amlogic_[0-9]+.*_all\.ipk" | head -n 1 | cut -d '"' -f 4)
-        curl -L -o packages/luci-app-amlogic_all.ipk "$AMLOGIC_IPK_URL"
-        
-        DAED_IPK_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep -E "luci-app-daed_[0-9]+.*_all\.ipk" | head -n 1 | cut -d '"' -f 4)
-        curl -L -o packages/luci-app-daed_all.ipk "$DAED_IPK_URL"
+        if [[ "${{ github.event.inputs.branch || 'v24.10.6' }}" == "v25.12.0" ]]; then
+          # APK mode (ImmortalWrt 25.12)
+          AMLOGIC_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/ophub/luci-app-amlogic/releases/latest | grep "browser_download_url" | grep "luci-app-amlogic" | grep -v "i18n" | grep "\.apk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$AMLOGIC_URL" ]; then curl -L -o packages/luci-app-amlogic.apk "$AMLOGIC_URL"; else echo "Error: AMLOGIC_URL is empty!"; exit 1; fi
+          
+          DAED_BACKEND_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep "daed-" | grep "aarch64_generic" | grep "25.12" | grep "\.apk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$DAED_BACKEND_URL" ]; then curl -L -o packages/daed.apk "$DAED_BACKEND_URL"; else echo "Error: DAED_BACKEND_URL is empty!"; exit 1; fi
+          
+          DAED_FRONTEND_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep "luci-app-daed-" | grep "25.12" | grep "\.apk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$DAED_FRONTEND_URL" ]; then curl -L -o packages/luci-app-daed.apk "$DAED_FRONTEND_URL"; else echo "Error: DAED_FRONTEND_URL is empty!"; exit 1; fi
+          
+          DAED_ZH_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep "luci-i18n-daed-zh-cn-" | grep "25.12" | grep "\.apk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$DAED_ZH_URL" ]; then curl -L -o packages/luci-i18n-daed-zh-cn.apk "$DAED_ZH_URL"; else echo "Warning: DAED_ZH_URL is empty!"; fi
+        else
+          # IPK mode (ImmortalWrt 24.10)
+          AMLOGIC_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/ophub/luci-app-amlogic/releases/latest | grep "browser_download_url" | grep "luci-app-amlogic_" | grep -v "i18n" | grep "\.ipk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$AMLOGIC_URL" ]; then curl -L -o packages/luci-app-amlogic.ipk "$AMLOGIC_URL"; else echo "Error: AMLOGIC_URL is empty!"; exit 1; fi
+          
+          DAED_BACKEND_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep "daed_" | grep "aarch64_generic" | grep "24.10" | grep "\.ipk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$DAED_BACKEND_URL" ]; then curl -L -o packages/daed.ipk "$DAED_BACKEND_URL"; else echo "Error: DAED_BACKEND_URL is empty!"; exit 1; fi
+          
+          DAED_FRONTEND_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep "luci-app-daed_" | grep "24.10" | grep "\.ipk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$DAED_FRONTEND_URL" ]; then curl -L -o packages/luci-app-daed.ipk "$DAED_FRONTEND_URL"; else echo "Error: DAED_FRONTEND_URL is empty!"; exit 1; fi
+          
+          DAED_ZH_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep "luci-i18n-daed-zh-cn_" | grep "24.10" | grep "\.ipk" | head -n 1 | cut -d '"' -f 4)
+          if [ -n "$DAED_ZH_URL" ]; then curl -L -o packages/luci-i18n-daed-zh-cn.ipk "$DAED_ZH_URL"; else echo "Warning: DAED_ZH_URL is empty!"; fi
+        fi
         
         echo "Copying custom configuration files..."
         cp -r $GITHUB_WORKSPACE/armsr/armv8/N1/files/* files/
         sed -i "s|https://github.com/nantayo/N1-OpenWrt|https://github.com/${{ github.repository }}|g" files/etc/config/amlogic
         
         echo "Building image..."
-        PACKAGES="luci-app-amlogic luci-app-daed autocore fstrim zoneinfo-asia bsdtar btrfs-progs chattr f2fs-tools gawk getopt lsattr perlbase-file perlbase-getopt perlbase-unicode perl-http-date pigz tar xfs-fsck xfs-mkfs -ppp -ppp-mod-pppoe -kmod-ppp -luci-app-attendedsysupgrade"
+        PACKAGES="luci-app-amlogic daed luci-app-daed luci-i18n-daed-zh-cn autocore fstrim zoneinfo-asia bsdtar btrfs-progs chattr f2fs-tools gawk getopt lsattr perlbase-file perlbase-getopt perlbase-unicode perl-http-date pigz tar xfs-fsck xfs-mkfs -ppp -ppp-mod-pppoe -kmod-ppp -luci-app-attendedsysupgrade"
         make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files"
         
         echo "Moving output to expected workspace..."

@@ -1,8 +1,16 @@
-name: Build ImmortalWrt-25.12 for armsr_armv8
+name: Build ImmortalWrt for armsr_armv8
 
 on:
   workflow_dispatch:
-   inputs:
+    inputs:
+      branch:
+        description: 'ImmortalWrt Branch or Tag'
+        required: true
+        default: 'v24.10.6'
+        type: choice
+        options:
+          - v24.10.6
+          - v25.12.0
       ssh:
         description: 'SSH connection to Actions'
         required: true
@@ -17,7 +25,7 @@ on:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: openwrt-25.12
+  REPO_BRANCH: ${{ github.event.inputs.branch || 'v24.10.6' }}
   TZ: Asia/Shanghai
 
 jobs:
@@ -108,7 +116,7 @@ jobs:
         body: |
           首次使用建议全新刷写
           * 基本信息
-          IP: 192.168.2.2
+          IP: 192.168.0.240
           账户: root
           密码: password
 

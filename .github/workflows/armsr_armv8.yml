@@ -80,12 +80,12 @@ jobs:
       if: github.event.inputs.build_mode != 'Compile'
       run: |
         VERSION_NUM=$(echo "${{ github.event.inputs.branch || 'v24.10.6' }}" | sed 's/^v//')
-        IB_FILE="immortalwrt-imagebuilder-${VERSION_NUM}-armsr-armv8.Linux-x86_64.tar.xz"
+        IB_FILE="immortalwrt-imagebuilder-${VERSION_NUM}-armsr-armv8.Linux-x86_64.tar.zst"
         IB_URL="https://downloads.immortalwrt.org/releases/${VERSION_NUM}/targets/armsr/armv8/${IB_FILE}"
         
         echo "Downloading Image Builder from $IB_URL..."
         curl -LO "$IB_URL"
-        tar -xJf "$IB_FILE"
+        tar -xf "$IB_FILE"
         mv immortalwrt-imagebuilder-* imagebuilder
         
         cd imagebuilder

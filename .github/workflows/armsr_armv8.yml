@@ -11,6 +11,15 @@ on:
         options:
           - v24.10.6
           - v25.12.0
+      kernel:
+        description: 'Amlogic Kernel Version'
+        required: true
+        default: '6.12.y'
+        type: choice
+        options:
+          - 6.12.y
+          - 6.6.y
+          - 6.1.y
       ssh:
         description: 'SSH connection to Actions'
         required: true
@@ -19,8 +28,6 @@ on:
         options:
           - true
           - false
-  schedule:
-    - cron: "0 0 1,16 * *"
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +72,6 @@ jobs:
         git clone $REPO_URL -b $REPO_BRANCH --single-branch --depth=1 openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
         echo "FILE_DATE=$(date +"%Y%m%d")" >> $GITHUB_ENV
-
     - name: Update & Install feeds
       run: |
         chmod +x armsr/armv8/diy/diy.sh
@@ -79,6 +85,7 @@ jobs:
       run: |
         rm -rf openwrt/files openwrt/.config
         mv armsr/armv8/N1/files armsr/armv8/N1/.config openwrt/
+        sed -i "s|https://github.com/nantayo/N1-OpenWrt|https://github.com/${{ github.repository }}|g" openwrt/files/etc/config/amlogic
 
     - name: SSH connect to Actions
       uses: P3TERX/ssh2actions@main
@@ -105,8 +112,8 @@ jobs:
         openwrt_board: s905d
         kernel_repo: ophub/kernel
         kernel_usage: flippy
-        openwrt_kernel: 6.12.y
-        builder_name: nantayo
+        openwrt_kernel: ${{ github.event.inputs.kernel || '6.12.y' }}
+        builder_name: ${{ github.actor }}
 
     - name: Upload firmware to release
       uses: softprops/action-gh-release@master

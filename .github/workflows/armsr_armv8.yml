@@ -3,6 +3,14 @@ name: Build ImmortalWrt for armsr_armv8
 on:
   workflow_dispatch:
     inputs:
+      build_mode:
+        description: 'Build Mode'
+        required: true
+        default: 'ImageBuilder'
+        type: choice
+        options:
+          - ImageBuilder
+          - Compile
       branch:
         description: 'ImmortalWrt Branch or Tag'
         required: true
@@ -68,13 +76,50 @@ jobs:
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
 
+    - name: Use Image Builder to build rootfs
+      if: github.event.inputs.build_mode != 'Compile'
+      run: |
+        VERSION_NUM=$(echo "${{ github.event.inputs.branch || 'v24.10.6' }}" | sed 's/^v//')
+        IB_FILE="immortalwrt-imagebuilder-${VERSION_NUM}-armsr-armv8.Linux-x86_64.tar.xz"
+        IB_URL="https://downloads.immortalwrt.org/releases/${VERSION_NUM}/targets/armsr/armv8/${IB_FILE}"
+        
+        echo "Downloading Image Builder from $IB_URL..."
+        curl -LO "$IB_URL"
+        tar -xJf "$IB_FILE"
+        mv immortalwrt-imagebuilder-* imagebuilder
+        
+        cd imagebuilder
+        mkdir -p packages files
+        
+        echo "Downloading custom packages..."
+        AMLOGIC_IPK_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/ophub/luci-app-amlogic/releases/latest | grep "browser_download_url" | grep -E "luci-app-amlogic_[0-9]+.*_all\.ipk" | head -n 1 | cut -d '"' -f 4)
+        curl -L -o packages/luci-app-amlogic_all.ipk "$AMLOGIC_IPK_URL"
+        
+        DAED_IPK_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/QiuSimons/luci-app-daed/releases/latest | grep "browser_download_url" | grep -E "luci-app-daed_[0-9]+.*_all\.ipk" | head -n 1 | cut -d '"' -f 4)
+        curl -L -o packages/luci-app-daed_all.ipk "$DAED_IPK_URL"
+        
+        echo "Copying custom configuration files..."
+        cp -r $GITHUB_WORKSPACE/armsr/armv8/N1/files/* files/
+        sed -i "s|https://github.com/nantayo/N1-OpenWrt|https://github.com/${{ github.repository }}|g" files/etc/config/amlogic
+        
+        echo "Building image..."
+        PACKAGES="luci-app-amlogic luci-app-daed autocore fstrim zoneinfo-asia bsdtar btrfs-progs chattr f2fs-tools gawk getopt lsattr perlbase-file perlbase-getopt perlbase-unicode perl-http-date pigz tar xfs-fsck xfs-mkfs -ppp -ppp-mod-pppoe -kmod-ppp -luci-app-attendedsysupgrade"
+        make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files"
+        
+        echo "Moving output to expected workspace..."
+        mkdir -p $GITHUB_WORKSPACE/openwrt/bin/targets/armsr/armv8
+        cp bin/targets/armsr/armv8/*rootfs.tar.gz $GITHUB_WORKSPACE/openwrt/bin/targets/armsr/armv8/
+        echo "FILE_DATE=$(date +"%Y%m%d")" >> $GITHUB_ENV
+
     - name: Clone source code
+      if: github.event.inputs.build_mode == 'Compile'
       working-directory: /workdir
       run: |
         git clone $REPO_URL -b $REPO_BRANCH --single-branch --depth=1 openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
         echo "FILE_DATE=$(date +"%Y%m%d")" >> $GITHUB_ENV
     - name: Update & Install feeds
+      if: github.event.inputs.build_mode == 'Compile'
       run: |
         chmod +x armsr/armv8/diy/diy.sh
         cd openwrt
@@ -84,6 +129,7 @@ jobs:
         ./scripts/feeds install -a
 
     - name: Load N1 custom config
+      if: github.event.inputs.build_mode == 'Compile'
       run: |
         rm -rf openwrt/files openwrt/.config
         mv armsr/armv8/N1/files armsr/armv8/N1/.config openwrt/
@@ -91,9 +137,10 @@ jobs:
 
     - name: SSH connect to Actions
       uses: P3TERX/ssh2actions@main
-      if: github.event.inputs.ssh == 'true'
+      if: github.event.inputs.ssh == 'true' && github.event.inputs.build_mode == 'Compile'
 
     - name: Download package
+      if: github.event.inputs.build_mode == 'Compile'
       working-directory: ./openwrt
       run: |
         make defconfig
@@ -101,6 +148,7 @@ jobs:
         find dl -size -1k -exec rm -f {} \;
 
     - name: Compile N1 firmware
+      if: github.event.inputs.build_mode == 'Compile'
       run: |
         chmod -R 755 openwrt
         cd openwrt

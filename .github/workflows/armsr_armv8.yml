@@ -86,6 +86,7 @@ jobs:
         echo "Downloading Image Builder from $IB_URL..."
         curl -LO "$IB_URL"
         tar -xf "$IB_FILE"
+        rm -f "$IB_FILE"
         mv immortalwrt-imagebuilder-* imagebuilder
         
         cd imagebuilder

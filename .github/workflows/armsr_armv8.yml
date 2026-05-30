@@ -126,7 +126,7 @@ jobs:
         sed -i "s|https://github.com/nantayo/N1-OpenWrt|https://github.com/${{ github.repository }}|g" files/etc/config/amlogic
         
         echo "Building image..."
-        PACKAGES="luci-app-amlogic daed luci-app-daed luci-i18n-daed-zh-cn autocore fstrim zoneinfo-asia bsdtar btrfs-progs chattr f2fs-tools gawk getopt lsattr perlbase-file perlbase-getopt perlbase-unicode perl-http-date pigz tar xfs-fsck xfs-mkfs -ppp -ppp-mod-pppoe -kmod-ppp -luci-app-attendedsysupgrade"
+        PACKAGES="luci-app-amlogic daed luci-app-daed luci-i18n-daed-zh-cn autocore fstrim zoneinfo-asia bsdtar btrfs-progs chattr f2fs-tools gawk getopt lsattr perlbase-file perlbase-getopt perlbase-unicode perl-http-date pigz tar xfs-fsck xfs-mkfs -ppp -ppp-mod-pppoe -kmod-ppp -luci-app-attendedsysupgrade kmod-tun kmod-inet-diag kmod-netlink-diag kmod-nft-tproxy"
         make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files"
         
         echo "Moving output to expected workspace..."
